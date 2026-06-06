@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpineViewer Pro (v3.8+ Only)</title>
+
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0; padding: 20px;
+        }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 25px; background: var(--card-bg);
+            border-radius: 12px; margin-bottom: 25px; border: 1px solid var(--border-color);
+        }
+
+        #btn-select {
+            padding: 12px 24px; background: var(--primary-color);
+            color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
+        }
+
+        #container {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 25px;
+        }
+
+        .spine-card {
+            background: var(--card-bg); border-radius: 15px; padding: 15px;
+            border: 1px solid var(--border-color); position: relative;
+        }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .card-title { margin: 0; font-size: 0.85rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .folder-label { color: #777; }
+        .file-label { color: var(--primary-color); font-weight: bold; }
+        
+        .version-badge {
+            background: #333;
+            color: #aaa;
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            border: 1px solid #444;
+            font-weight: normal;
+            vertical-align: middle;
+        }
+
+        .player-box {
+            width: 100%; height: 450px; background: #000; border-radius: 10px; overflow: hidden;
+            position: relative;
+            touch-action: none;
+        }
+
+        .player-box canvas {
+            pointer-events: none !important;
+            touch-action: none;
+        }
+
+        .spine-player-controls, .spine-player-timeline {
+            pointer-events: auto !important;
+        }
+
+        .spine-card:active .player-box canvas {
+            pointer-events: auto !important;
+        }
+        
+        .spine-card::after {
+            content: "Giữ chuột để Zoom/Xoay";
+            position: absolute;
+            bottom: 50px;
+            right: 25px;
+            font-size: 10px;
+            color: #555;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .spine-card:hover::after {
+            opacity: 1;
+        }
+
+        .controls-group { display: flex; align-items: center; gap: 8px; }
+        .bound-check { font-size: 0.7rem; color: #888; display: flex; align-items: center; gap: 3px; cursor: pointer; }
+        .reload-btn { background: #333; border: 1px solid #444; color: #aaa; border-radius: 4px; padding: 4px 6px; cursor: pointer; }
+        .reload-btn:hover { background: var(--primary-color); color: white; }
+
+        .pagination-container { display: flex; flex-direction: column; align-items: center; margin-top: 30px; padding-bottom: 50px; }
+        .pagination-bar { display: flex; gap: 5px; margin-bottom: 10px; }
+        .pagination-bar button { padding: 8px 12px; background: #252525; border: 1px solid #333; color: white; border-radius: 4px; cursor: pointer; }
+        .pagination-bar button.active { background: var(--primary-color); }
+        .nav-btn { padding: 8px 12px; background: #252525; border: 1px solid #333; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .pagination-nav { display: flex; align-items: center; gap: 8px; }
+        .pagination-nav input { width: 60px; padding: 8px; background: #121212; border: 1px solid #333; color: white; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2 style="margin:0;">SpineViewer <span style="color:var(--primary-color)">Pro</span></h2>
+        <div style="display: flex; gap: 10px;">
+            <button id="btn-select" onclick="chooseFolder()">📁 Chọn thư mục</button>
+            <button id="btn-clear" onclick="clearAllFiles()" style="padding: 12px 24px; background: #ff5252; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">🗑️ Xóa danh sách</button>
+        </div>
+    </div>
+
+    <div id="container"></div>
+
+    <div id="pagination" class="pagination-container" style="display:none;">
+        <div id="pagination-buttons" class="pagination-bar"></div>
+        <div class="pagination-nav">
+            <button class="nav-btn" onclick="changePage(1)">|◀</button>
+            <button class="nav-btn" onclick="changePage(currentPage - 1)">◀</button>
+            <input type="number" id="page-input" placeholder="Trang">
+            <button class="nav-btn" style="background:var(--primary-color)" onclick="goToPage()">Đi</button>
+            <button class="nav-btn" onclick="changePage(currentPage + 1)">▶</button>
+            <button class="nav-btn" onclick="jumpToLast()">▶|</button>
+        </div>
+        <div id="page-info" style="margin-top:10px; color:#666; font-size:0.8rem;"></div>
+    </div>
+
+    <script>
+        let allData = [];
+        let currentPage = 1;
+        const itemsPerPage = 12;
+        const loadedLibraries = { css: {}, js: {} };
+
+        function loadSpineLibrary(version) {
+            return new Promise((resolve) => {
+                let majorVersion = parseFloat(version);
+                let cssUrl = "";
+                let jsUrl = "";
+                let namespaceKey = "";
+
+                // Chỉ còn 2 nhánh tải thư viện từ 3.8 trở lên
+                if (majorVersion >= 4.0) {
+                    cssUrl = "spine-player4.2.css";
+                    jsUrl = "spine-player4.2.js";
+                    namespaceKey = "spineV4";
+                } else {
+                    cssUrl = "spine-player3.8.css";
+                    jsUrl = "spine-player3.8.js";
+                    namespaceKey = "spineV38";
+                }
+
+                if (!loadedLibraries.css[cssUrl]) {
+                    const link = document.createElement("link");
+                    link.rel = "stylesheet";
+                    link.href = cssUrl;
+                    document.head.appendChild(link);
+                    loadedLibraries.css[cssUrl] = true;
+                }
+
+                if (loadedLibraries.js[jsUrl]) {
+                    resolve(window[namespaceKey]);
+                } else {
+                    const script = document.createElement("script");
+                    script.src = jsUrl;
+                    script.onload = () => {
+                        loadedLibraries.js[jsUrl] = true;
+                        window[namespaceKey] = window.spine;
+                        resolve(window[namespaceKey]);
+                    };
+                    document.head.appendChild(script);
+                }
+            });
+        }
+
+        async function chooseFolder() {
+            const newData = await pywebview.api.select_folder();
+            if (newData && newData.length > 0) {
+                allData = newData;
+                currentPage = 1;
+                document.getElementById('pagination').style.display = 'flex';
+                refreshUI();
+            }
+        }
+
+        function clearAllFiles() {
+            allData = [];
+            currentPage = 1;
+            document.getElementById('container').innerHTML = '';
+            document.getElementById('pagination').style.display = 'none';
+        }
+
+        function refreshUI() {
+            displayItems(currentPage);
+            setupPagination();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function initSingleSpine(playerId, item) {
+            const spineInstance = await loadSpineLibrary(item.version);
+            const box = document.getElementById(playerId);
+            box.innerHTML = '';
+            try {
+                const config = {
+                    atlasUrl: item.atlas,
+                    jsonUrl: encodeURI(item.json),
+                    alpha: true,
+                    backgroundColor: "#00000000",
+                    showControls: true,
+                    defaultMix: 0,
+                    controlWheel: true,
+                    preserveDrawingBuffer: true,
+                    success: function (p) {
+                        if (p && p.skeletonData && p.skeletonData.animations) {
+                            const anims = p.skeletonData.animations;
+                            if (anims.length > 0) p.setAnimation(anims[0].name, true);
+                        }
+                    },
+                };
+
+                if (item.use_bound) {
+                    config.viewport = { x: -1000, y: -1000, width: 2000, height: 2000 };
+                }
+
+                new spineInstance.SpinePlayer(playerId, config);
+            } catch (e) { 
+                console.error(e); 
+                box.innerHTML = `<div style="color:#ff5252; padding: 20px; font-size:12px;">Lỗi render bản v${item.version}</div>`;
+            }
+        }
+
+        function toggleBound(absIdx, idx, page) {
+            allData[absIdx].use_bound = !allData[absIdx].use_bound;
+            reloadSpine(idx, page);
+        }
+
+        function reloadSpine(idx, page) {
+            const item = allData[(page - 1) * itemsPerPage + idx];
+            initSingleSpine(`spine-player-${idx}-${page}`, item);
+        }
+
+        function displayItems(page) {
+            const container = document.getElementById('container');
+            container.innerHTML = '';
+            const start = (page - 1) * itemsPerPage;
+            const pageItems = allData.slice(start, start + itemsPerPage);
+
+            pageItems.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'spine-card';
+                const playerId = `spine-player-${index}-${page}`;
+                const absIdx = start + index;
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <span class="folder-label">${item.folder_display} /</span> 
+                            <span class="file-label">${item.name}</span>
+                            <span class="version-badge">v${item.version}</span>
+                        </h3>
+                        <div class="controls-group">
+                            <label class="bound-check">
+                                <input type="checkbox" ${item.use_bound ? 'checked' : ''} onchange="toggleBound(${absIdx}, ${index}, ${page})"> Bound
+                            </label>
+                            <button class="reload-btn" onclick="reloadSpine(${index}, ${page})">🔄</button>
+                        </div>
+                    </div>
+                    <div id="${playerId}" class="player-box"></div>
+                `;
+                container.appendChild(card);
+                initSingleSpine(playerId, item);
+            });
+        }
+
+        function changePage(p) {
+            const max = Math.ceil(allData.length / itemsPerPage);
+            if (p < 1 || p > max) return;
+            currentPage = p;
+            refreshUI();
+        }
+
+        function jumpToLast() { changePage(Math.ceil(allData.length / itemsPerPage)); }
+
+        function goToPage() {
+            const val = parseInt(document.getElementById('page-input').value);
+            if (val) { changePage(val); document.getElementById('page-input').value = ''; }
+        }
+
+        function setupPagination() {
+            const box = document.getElementById('pagination-buttons');
+            const info = document.getElementById('page-info');
+            box.innerHTML = '';
+            const count = Math.ceil(allData.length / itemsPerPage);
+            info.innerText = `Trang ${currentPage} / ${count} - Tổng: ${allData.length}`;
+            let s = Math.max(1, currentPage - 2);
+            let e = Math.min(count, s + 4);
+            for (let i = s; i <= e; i++) {
+                const b = document.createElement('button');
+                b.innerText = i;
+                if (i === currentPage) b.className = 'active';
+                b.onclick = () => changePage(i);
+                box.appendChild(b);
+            }
+        }
+    </script>
+</body>
+</html>
