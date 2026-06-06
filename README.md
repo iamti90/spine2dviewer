@@ -7,3 +7,15 @@ You can view various Spine files across the parent directory and its subdirector
 Supported Spine versions are 3.6 - 3.8 and 4.0 - 4.2. You can add other versions by updating the code in the index.html file.
 
 The most stable version of this tool is "v6". In this version, you can filter for files based on the corresponding animation name.
+
+The source code uses HTML and JS because the spine-player library is written in JavaScript. All code and library files are then bundled into a single .exe file to allow the library to be called during execution.
+
+To enable debug mode, set debug=True on the last line of the .py file. Make sure to disable it before compiling into an executable.
+
+* Python version 3.13.13
+
+--- Command to build exe ---
+
+pyinstaller --noconfirm --onefile --windowed --distpath . --name "SpineViewer_v6" --icon="favicon.ico" --add-data "index_v6.html;." --add-data "spine-player*;." main_v6.py
+
+------------------------------
