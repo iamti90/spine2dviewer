@@ -14,10 +14,11 @@
 
 * Python version 3.13.13
 
+------------------------------
 --- Command to build exe ---
 
 pyinstaller --noconfirm --onefile --windowed --distpath . --name "SpineViewer_v6" --icon="favicon.ico" --add-data "index_v6.html;." --add-data "spine-player*;." main_v6.py
 
 ------------------------------
 
-If it displays "Error: Could not load skeleton JSON. Region not found in atlas", you need to open the file directly in Spine 2D to fix the missing image error.
+- If it displays "Error: Could not load skeleton JSON. Region not found in atlas", you need to open the file directly in Spine 2D to fix the missing image error.
