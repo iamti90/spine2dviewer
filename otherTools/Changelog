@@ -1,0 +1,41 @@
+### **delete_skel.py:**
+* Delete [skel + png + atlas] files in folders containing a matching `.skel` filename.
+* Confirmation loop to prompt the user before proceeding with deletion.
+* Build command: `pyinstaller --onefile --distpath . delete_skel.py`
+
+### **delete_json.py:**
+* Delete [json.txt + json + png + atlas] files in folders containing a matching `.skel` filename.
+* Confirmation loop to prompt the user before proceeding with deletion.
+* Build command: `pyinstaller --onefile --distpath . delete_json.py`
+
+### **rename_spine.py:**
+* Rename the `.spine` file to match its parent folder name.
+
+### **export_spine.py:**
+* Export JSON files into the same directory.
+* Display the current file processing index.
+
+### **export_spine_v2.py:**
+
+* Export JSON files into the same directory.
+* Rename files to match their folder name.
+
+### **export_spine_v3.py:**
+* Includes all features from v1 and v2.
+* Prompt for Spine 2D version input to run the command (defaults to `3.8.99`).
+* Validate input characters.
+* Verify if all required files (JSON, Atlas, PNG) were successfully exported.
+* Check whether the specified Spine 2D version exists.
+* Add settings for building the EXE file.
+* Confirmation loop to prompt the user before proceeding with the export.
+
+### **export_spine_v4.py:**
+* Includes all features from v3.
+* Log failed export filenames to `export_error.txt`.
+* Append the timestamp to `export_error.txt` on the initial run.
+* Skip exporting if the folder already contains all 3 files: atlas.txt (or atlas), png, and json.
+
+### **export_spine_v5.py:**
+* Includes all features from v4.
+* Update duplicate filename matching logic from `.json` to `.spine`.
+* Build command: `pyinstaller --onefile --distpath . export_spine_v5.py`
