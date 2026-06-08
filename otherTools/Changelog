@@ -33,7 +33,7 @@
 * Includes all features from v3.
 * Log failed export filenames to `export_error.txt`.
 * Append the timestamp to `export_error.txt` on the initial run.
-* Skip exporting if the folder already contains all 3 files: atlas.txt (or atlas), png, and json.
+* Skip exporting if the folder already contains all 3 files: atlas.txt (or atlas), png, and json. Checking for duplicates based on the .json filename
 
 ### **export_spine_v5.py:**
 * Includes all features from v4.
