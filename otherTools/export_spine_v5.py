@@ -5,10 +5,10 @@ import re
 import msvcrt
 import time
 
-# ================= CAU HINH DUONG DAN =================
+# ================= PATH CONFIGURATION =================
 SPINE_EXE = r"C:\Program Files\Spine\Spine.exe" 
 
-# KIỂM TRA ĐƯỜNG DẪN THỰC TẾ (Sửa lỗi PyInstaller .exe không tìm thấy json_settings)
+# VERIFY ACTUAL PATH (Fixes issue where PyInstaller .exe cannot find json_settings)
 if getattr(sys, 'frozen', False):
     CURRENT_DIR = os.path.dirname(os.path.abspath(sys.executable))
 else:
@@ -18,11 +18,11 @@ EXPORT_SETTINGS = os.path.join(CURRENT_DIR, "json_settings.json")
 ERROR_LOG_FILE = os.path.join(CURRENT_DIR, "export_error.txt")
 # =======================================================
 
-# Biến toàn cục để đánh dấu lần đầu tiên ghi lỗi trong phiên chạy này
+# Global variable to mark the first error logged in this session
 IS_FIRST_ERROR_IN_SESSION = True
 
 def get_spine_files(input_paths):
-    """Sử dụng thư viện os để tìm toàn bộ file .spine trong các đường dẫn"""
+    """Use os library to find all .spine files in the provided paths"""
     spine_files = []
     
     for p in input_paths:
@@ -47,11 +47,14 @@ def get_spine_files(input_paths):
                         
     return sorted(list(set(spine_files)))
 
-def check_export_output(output_dir):
-    """Kiểm tra xem thư mục có tồn tại đầy đủ cả 3 đuôi file json, atlas (hoặc atlas.txt) và png hay không"""
+def check_export_output(output_dir, spine_base_name):
+    """UPDATED: Check if after running Spine, the folder generates a complete set of 3 files
+    (.json, .atlas, and .png) matching EXACTLY the name of that .spine file"""
     has_json = False
     has_atlas = False
     has_png = False
+    
+    name_lower = spine_base_name.lower()
 
     try:
         all_files = os.listdir(output_dir)
@@ -60,24 +63,29 @@ def check_export_output(output_dir):
 
     for file in all_files:
         file_lower = file.lower()
-        if file_lower.endswith(".json"):
+        
+        # Check for json file matching the spine file name
+        if file_lower == f"{name_lower}.json":
             has_json = True
-        if file_lower.endswith(".atlas") or file_lower.endswith(".atlas.txt"):
+        # Check for atlas file matching the spine file name
+        if file_lower == f"{name_lower}.atlas" or file_lower == f"{name_lower}.atlas.txt":
             has_atlas = True
-        if file_lower.endswith(".png"):
+        # Check for image file matching the spine file name (or subsequent page packs)
+        if file_lower == f"{name_lower}.png" or file_lower.startswith(f"{name_lower}2.png") or file_lower.startswith(f"{name_lower}_2.png"):
             has_png = True
 
+        # If a complete set with matching name is found, return True immediately
         if has_json and has_atlas and has_png:
             return True
 
     return has_json and has_atlas and has_png
 
 def check_existing_files_by_spine(spine_file_path):
-    """Lấy tên file .spine làm chuẩn để đối chiếu xem có đủ bộ .json, .atlas và .png trùng tên không"""
+    """Take the .spine filename as standard to cross-check if complete sets of matching .json, .atlas, and .png exist"""
     output_dir = os.path.dirname(spine_file_path)
     file_name = os.path.basename(spine_file_path)
     
-    # Lấy tên file gốc không chứa đuôi .spine
+    # Get base name without .spine extension
     spine_base_name, _ = os.path.splitext(file_name)
     name_lower = spine_base_name.lower()
 
@@ -92,34 +100,34 @@ def check_existing_files_by_spine(spine_file_path):
 
     for file in all_files:
         file_lower = file.lower()
-        # Kiểm tra file json trùng tên file spine
+        # Check for json file matching the spine file name
         if file_lower == f"{name_lower}.json":
             has_json = True
-        # Kiểm tra file atlas trùng tên file spine
+        # Check for atlas file matching the spine file name
         if file_lower == f"{name_lower}.atlas" or file_lower == f"{name_lower}.atlas.txt":
             has_atlas = True
-        # Kiểm tra file ảnh trùng tên file spine (hoặc các tấm pack lẻ tiếp theo ví dụ: name2.png, name_2.png)
+        # Check for image file matching the spine file name (or subsequent pack sheets e.g., name2.png, name_2.png)
         if file_lower == f"{name_lower}.png" or file_lower.startswith(f"{name_lower}2.png") or file_lower.startswith(f"{name_lower}_2.png"):
             has_png = True
 
-    # Nếu trùng khớp tên và có đủ cả 3 thành phần thì công nhận là đã hoàn thành
+    # If the name matches and all 3 components exist, consider it completed
     if has_json and has_atlas and has_png:
         return True
 
     return False
 
 def log_single_error(file_path):
-    """Ghi chèn trực tiếp đường dẫn file lỗi vào file export_error.txt"""
+    """Append the error file path directly into export_error.txt"""
     global IS_FIRST_ERROR_IN_SESSION
     try:
-        # Chế độ "a" (append) giúp ghi thêm dòng mới vào cuối file mà không ghi đè nội dung cũ
+        # Append mode "a" adds new lines to the end of the file without overwriting old content
         with open(ERROR_LOG_FILE, "a", encoding="utf-8") as f:
-            # Nếu đây là lần đầu tiên phát sinh lỗi kể từ khi bật chương trình
+            # If this is the first error encountered since the tool started
             if IS_FIRST_ERROR_IN_SESSION:
                 f.write(f"\n==================================================\n")
-                f.write(f"PHIEN CHAY CO LOI PHAT SINH: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"SESSION WITH ERRORS ENCOUNTERED: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write(f"==================================================\n")
-                # Chuyển trạng thái thành False để các file sau không ghi lại dòng ngày tháng này nữa
+                # Change state to False so subsequent files won't re-write this date header
                 IS_FIRST_ERROR_IN_SESSION = False
                 
             f.write(f"[{time.strftime('%H:%M:%S')}] {file_path}\n")
@@ -135,7 +143,7 @@ def main():
         input("\nNhan Enter de thoat...")
         return
 
-    # 1. HỎI NGƯỜI DÙNG PHIÊN BẢN SPINE (CHỈ HỎI 1 LẦN DUY NHẤT LÚC MỞ TOOL)
+    # 1. PROMPT USER FOR SPINE VERSION (ONLY PROMPTED ONCE WHEN OPENING THE TOOL)
     print("=== TOOL EXPORT SPINE RA JSON ===\n")
     spine_version = ""
     while True:
@@ -155,12 +163,12 @@ def main():
     print(f"-> Sẽ su dung Spine phien ban: {spine_version}\n")
     print("-" * 50)
 
-    # VÒNG LẶP CHÍNH: HỎI CÓ MUỐN EXPORT TIẾP KHÔNG
+    # MAIN LOOP: ASK IF USER WANTS TO CONTINUE EXPORTING
     while True:
-        # 2. XỬ LÝ ĐƯỜNG DẪN INPUT TRONG VÒNG LẶP
+        # 2. PROCESS INPUT PATHS WITHIN THE LOOP
         raw_inputs = sys.argv[1:]
 
-        # Nếu không có tham số kéo thả từ bên ngoài file .exe/.bat, bắt đầu hỏi trong CMD
+        # If no drag-and-drop arguments are passed from outside the .exe/.bat, ask via CMD terminal
         if not raw_inputs:
             print("[Huong dan] Keo tha Folder vao cua so nay de chay tool.")
             user_input = input("Keo tha folder vao day roi nhan Enter: ").strip()
@@ -169,11 +177,11 @@ def main():
                 continue
             raw_inputs = [user_input]
         else:
-            # Nếu người dùng kéo thả trực tiếp vào file .exe/.bat từ bên ngoài Windows Explorer,
-            # hệ thống sẽ lấy tham số đó chạy 1 lần. Sau đó dọn dẹp biến sys.argv để vòng lặp sau bắt đầu nhận input thủ công.
+            # If user drags and drops directly into the .exe/.bat from Windows Explorer,
+            # the system takes that argument for one run. Then clear sys.argv so subsequent loops accept manual inputs.
             sys.argv = [sys.argv[0]] 
 
-        # Tìm kiếm toàn bộ file .spine
+        # Search for all .spine files
         spine_files = get_spine_files(raw_inputs)
         total_files = len(spine_files)
 
@@ -184,7 +192,7 @@ def main():
             print("\n>>> DANG CHAY... BAM PHIM SPACE (DAU CACH) DE DUNG LAI GIUA CHUNG <<<\n")
             print("-" * 50)
 
-            # 3. VÒNG LẶP EXPORT FILE
+            # 3. EXPORT FILE LOOP
             for index, file_path in enumerate(spine_files, start=1):
                 if msvcrt.kbhit():
                     key = msvcrt.getch()
@@ -196,13 +204,12 @@ def main():
 
                 file_name = os.path.basename(file_path)
                 output_dir = os.path.dirname(file_path)
+                spine_clean_name, _ = os.path.splitext(file_name) # Base name of .spine file without extension
 
-                print(f"[{index}/{total_files}] Dang xu ly: {output_dir}\\{file_name}...")
+                print(f"[{index}/{total_files}] Dang xu ly: {output_dir}\{file_name}...")
 
-                # Truyền file_path của file .spine vào để kiểm tra trùng khớp tên
+                # Pass the file_path of the .spine file to check for existing matching output files
                 if check_existing_files_by_spine(file_path):
-                    # Tách lấy tên file .spine sạch để thông báo ra console trực quan hơn
-                    spine_clean_name, _ = os.path.splitext(file_name)
                     print(f" -> [BO QUA] Phat hien co san file {spine_clean_name}.json cung bo .atlas, .png hoan chinh.")
                     continue  
 
@@ -217,15 +224,16 @@ def main():
                 try:
                     subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
                     
-                    if check_export_output(output_dir):
+                    # UPDATED: Pass spine_clean_name to ensure precise validation
+                    if check_export_output(output_dir, spine_clean_name):
                         print(f" -> Thanh cong")
                     else:
                         print(f" -> [LOI] Export khong thanh cong.")
                         print(f" -> [LOI] Kiem tra lai file source hoặc version Spine2d")
-                        log_single_error(file_path) # Ghi đè chèn dòng trực tiếp
+                        log_single_error(file_path) # Append log entry directly
                 except subprocess.CalledProcessError:
                     print(f" -> [LOI CRASH] Khong the xuat {file_name}. Kiem tra phien ban hoac file settings.")
-                    log_single_error(file_path) # Ghi đè chèn dòng trực tiếp
+                    log_single_error(file_path) # Append log entry directly
                 except FileNotFoundError:
                     print(f" -> [LOI] Khong tim thay file Spine.exe tai: {SPINE_EXE}")
                     log_single_error(file_path)
@@ -234,7 +242,7 @@ def main():
             print("-" * 50)
             print("Qua trinh export thu muc nay hoan tat!")
 
-        # 4. HỎI NGƯỜI DÙNG CÓ MUỐN TIẾP TỤC KHÔNG
+        # 4. ASK USER IF THEY WANT TO CONTINUE
         print("\n" + "="*40)
         tiep_tuc = input("Ban co muon tiep tuc export thu muc khac khong? (Y/N) [Y]: ").strip().lower()
         print("="*40 + "\n")
@@ -245,7 +253,7 @@ def main():
             time.sleep(2)
             break
         else:
-            # Lệnh xóa màn hình Console cho sạch sẽ trước khi nhận folder mới (Windows sử dụng 'cls')
+            # Clear console terminal screen for a clean layout before receiving new folder (Windows uses 'cls')
             os.system('cls')
             print(f"=== TOOL EXPORT SPINE RA JSON ===")
             print(f"-> Phien ban Spine dang dung: {spine_version}\n")
