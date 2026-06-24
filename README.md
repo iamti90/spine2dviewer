@@ -4,7 +4,7 @@
 
 - You can view various Spine files across the parent directory and its subdirectories.
 
-- Supported Spine versions are 3.6 - 3.8 and 4.0 - 4.2. You can add other versions by updating the code in the index.html file.
+- Supported Spine versions are 3.x and 4.0 - 4.2. You can add other versions by updating the code in the index.html file.
 
 - The most stable version of this tool is "v7". In this version, you can filter for files based on the corresponding animation name.
 
@@ -17,7 +17,7 @@
 ------------------------------
 --- Command to build exe ---
 
-pyinstaller --noconfirm --onefile --windowed --distpath . --name "SpineViewer_v6" --icon="favicon.ico" --add-data "index_v6.html;." --add-data "spine-player*;." main_v6.py
+pyinstaller --noconfirm --onefile --windowed --distpath . --name "SpineViewer_v[X]" --icon="favicon.ico" --add-data "index_v[x].html;." --add-data "spine-player*;." main_v[x].py
 
 ------------------------------
 
