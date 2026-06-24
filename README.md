@@ -6,7 +6,7 @@
 
 - Supported Spine versions are 3.6 - 3.8 and 4.0 - 4.2. You can add other versions by updating the code in the index.html file.
 
-- The most stable version of this tool is "v6". In this version, you can filter for files based on the corresponding animation name.
+- The most stable version of this tool is "v7". In this version, you can filter for files based on the corresponding animation name.
 
 - The source code uses HTML and JS because the spine-player library is written in JavaScript. All code and library files are then bundled into a single .exe file to allow the library to be called during execution.
 
